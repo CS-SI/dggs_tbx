@@ -29,7 +29,7 @@ def rasterval_geojson(path_to_geojson, raster_path):
     with fiona.open(path_to_geojson, "r") as geofile:
         shapes = [feature["geometry"] for feature in geofile]
         target = len(shapes)
-        # extract the raster values values within the polygon
+        # extract the raster values within the polygon
         for i in track(range(len(shapes))):
             with rasterio.open(raster_path) as src:
                 try:
@@ -37,7 +37,7 @@ def rasterval_geojson(path_to_geojson, raster_path):
                     rast_vals.append(int(np.mean(out_image)))
                     count+=1
                 except:
-                    #logger.warning("Mask outside raster extent or nodata")
+                    logger.warning("Mask outside raster extent or nodata")
                     rast_vals.append(0)
     gdf = gpd.read_file(path_to_geojson)
     gdf[band_name] = rast_vals

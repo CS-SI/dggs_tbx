@@ -7,7 +7,6 @@ import rasterio
 from pyproj import CRS, transform
 from rhealpixdggs.dggs import WGS84_003
 from shapely.geometry import Polygon
-from utils import rasterval_geojson
 from rich.logging import RichHandler
 
 FORMAT = "%(message)s"
@@ -17,6 +16,8 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+# https://github.com/allixender/dggs_t1/blob/master/more_grids.ipynb
 
 def create_cells(res: int , extent: tuple= None):
     rdggs = WGS84_003
