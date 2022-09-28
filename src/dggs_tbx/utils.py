@@ -5,9 +5,11 @@ import fiona
 import geopandas as gpd
 import numpy as np
 import rasterio
+from pyproj import CRS, transform
 from rasterio.mask import mask
 from rich.logging import RichHandler
 from rich.progress import track
+from shapely.geometry import box
 
 FORMAT = "%(message)s"
 logging.basicConfig(
@@ -35,17 +37,25 @@ def rasterval_geojson(path_to_geojson, raster_path):
                 try:
                     out_image, out_transform = mask(src, [shapes[i]], crop=True)
                     rast_vals.append(int(np.mean(out_image)))
-                    count+=1
+                    count += 1
                 except:
                     logger.warning("Mask outside raster extent or nodata")
                     rast_vals.append(0)
     gdf = gpd.read_file(path_to_geojson)
     gdf[band_name] = rast_vals
-    #gdf = gdf.to_crs("EPSG:4326")
+    # gdf = gdf.to_crs("EPSG:4326")
     gdf.to_file(out_geojson, driver="GeoJSON")
     logger.info(f"-- Updated geojson saved to: {out_geojson}")
     logger.info(f"-- Cells with value: {count}/{target}")
 
+def reproject_bounds(bounds, epsg_in, epsg_out="4326"):
+    nw = (bounds[0], bounds[-1])
+    se = (bounds[2], bounds[1])
+    inProj = CRS(f"epsg:{epsg_in}")
+    outProj = CRS(f"epsg:{epsg_out}")
+    nw_proj = transform(inProj, outProj, nw[0], nw[1])
+    se_proj = transform(inProj, outProj, se[0], se[1])
+    return tuple(reversed(nw_proj)), tuple(reversed(se_proj))
 def binary_scl(scl_file: Path, raster_fn: Path) -> None:
     """
     Convert L2A SCL file to binary cloud mask
@@ -84,3 +94,35 @@ def binary_scl(scl_file: Path, raster_fn: Path) -> None:
         # Modify output metadata
 
         out.write(mask.astype(rasterio.uint8), 1)
+
+def get_raster_extent(raster_path: Path, outfname: Path = None) -> None:
+    with rasterio.open(raster_path, "r") as ds:
+        bounds = ds.bounds
+        extent_geom = box(*bounds)
+        print(reproject_bounds(bounds,ds.crs.to_epsg()))
+        df = gpd.GeoDataFrame({"id": 1, "geometry": [extent_geom]})
+        df.crs = ds.crs
+        df = df.to_crs("EPSG:4326")
+        if outfname is None:
+            outfname = raster_path.parent / Path(str(raster_path.name).replace(".tif","_extent.shp"))
+        df.to_file(outfname)
+        logger.info(f"Raster extent saved to: {outfname}")
+def reproject_vector(vector_path: Path, raster_path: Path, outfname: Path = None) -> None:
+    with rasterio.open(raster_path,"r") as ds:
+        gdf = gpd.read_file(vector_path)
+        logger.info(f"Reprojecting from {gdf.crs} to EPSG:{ds.crs.to_epsg()}")
+        gdf = gdf.to_crs(f"EPSG:{ds.crs.to_epsg()}")
+        if outfname is None:
+            outfname = vector_path.parent / Path("reproj_"+str(vector_path.name))
+        gdf.to_file(outfname)
+        logger.info(f"Saved reprojected file to: {outfname}")
+        return Path(outfname)
+
+if __name__ == "__main__":
+    import sys
+    from pathlib import Path
+    raster_path = Path(sys.argv[1])
+    vector_path = Path(sys.argv[2])
+    get_raster_extent(raster_path, vector_path)
+    #dggrid_fname = reproject_vector(vector_path, raster_path)
+    #rasterval_geojson(dggrid_fname,raster_path)
