@@ -29,10 +29,10 @@ python src/dggs_tbx/main.py cog2rpix ../../S2_DATA/S2B_14QMF_20220725_0_L2A/B08.
 If you have ideas for releases in the future, it is a good idea to list them in the README.
 
 * Integrate DGGRID
-* Create docker image
+* Create docker image (add Dockerfile)
 
 ## Authors and acknowledgment
-Based on the work of Alex Kmoch
+Based on the work of Alex Kmoch and Kevin Sahr
 
 
 ## Project status
