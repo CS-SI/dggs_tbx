@@ -17,10 +17,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# https://github.com/allixender/dggs_t1/blob/master/more_grids.ipynb
+# Credit: https://github.com/allixender/dggs_t1/blob/master/more_grids.ipynb
 
 
 def create_cells(res: int, extent: tuple = None):
+    # Credit: https://github.com/allixender/dggs_t1/blob/master/more_grids.ipynb
     rdggs = WGS84_003
     if extent is not None:
         nw, se = extent
@@ -34,6 +35,7 @@ def create_cells(res: int, extent: tuple = None):
 
 
 def add_geom_cell(df):
+    # Credit: https://github.com/allixender/dggs_t1/blob/master/more_grids.ipynb
     gdf = gpd.GeoDataFrame(df.copy())
     gdf["geometry"] = gdf["cell_id"].apply(
         lambda x: Polygon(x.boundary(n=3, plane=False))
@@ -48,12 +50,14 @@ def check_crossing(lon1: float, lon2: float, validate: bool = True):
     Assuming a minimum travel distance between two provided longitude coordinates,
     checks if the 180th meridian (antimeridian) is crossed.
     """
+    # Credit: https://github.com/allixender/dggs_t1/blob/master/more_grids.ipynb
     if validate and any(abs(x) > 180.0 for x in [lon1, lon2]):
         raise ValueError("longitudes must be in degrees [-180.0, 180.0]")
     return abs(lon2 - lon1) > 180.0
 
 
 def check_for_geom(geom):
+    # Credit: https://github.com/allixender/dggs_t1/blob/master/more_grids.ipynb
     crossed = False
     p_init = geom.exterior.coords[0]
 
@@ -92,3 +96,6 @@ def rpix_from_raster_extent(raster_path, out_dir, resolution):
     logger.info(f"Try to save output file {out_fname}")
     grid.to_file(out_dir / out_fname, driver="GeoJSON")
     return out_dir / out_fname
+
+def s2_to_rpix():
+    pass

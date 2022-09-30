@@ -16,6 +16,7 @@ from rich.logging import RichHandler
 from rich.progress import track
 from shapely.geometry import box
 from sqlalchemy import create_engine
+from dggs_tbx.utils import down_s2
 
 FORMAT = "%(message)s"
 logging.basicConfig(level=INFO, format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
@@ -50,35 +51,7 @@ def s2_to_h3(s2_tile_id: str,date="str", tmp_dir = Path(gettempdir()), res = 7, 
     # send dataframe to postgis
 
     # Download the Sentinel-2 data
-    if date[5]==0:
-        month = date[6]
-    else:
-        month = date[5:6]
-    prefix = f"sentinel-s2-l2a-cogs/{s2_tile_id[:2]}/{s2_tile_id[2:3]}/{s2_tile_id[3:]}/{date[:4]}/{month}/"
-    client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
-    bucket_name = "sentinel-cogs"
-    default_kwargs = {
-        "Bucket": bucket_name ,
-        "Prefix": prefix,
-    }
-    response = client.list_objects_v2(**default_kwargs)
-    contents = response.get("Contents")
-    logger.info(" -- S3 response recieved")
-    bands=["B02","B08"]
-    for resp in contents:
-        key = resp["Key"]
-        band = key.split("/")[-1].replace(".tif","")
-        if date in resp["Key"] and band in bands:
-            product_name = key.split("/")[-2]
-            out_dir = tmp_dir/product_name
-            out_dir.mkdir(parents=True,exist_ok=True)
-            file_name = out_dir/Path(band+".tif")
-            client.download_file(
-                bucket_name,
-                resp["Key"],
-                str(file_name)
-            )
-            logger.info(f" -- Saved {band} to {file_name}")
+    out_dir = down_s2(s2_tile_id,date,tmp_dir,bands=["B02","B08"])
     # Create a gdf of H3 hex at a given resolution
     list_bands = list(out_dir.rglob("*.tif"))
     h3_grid = h3_from_raster_extent(list_bands[0],out_dir,res,df_ret=True)
