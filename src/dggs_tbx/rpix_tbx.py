@@ -1,13 +1,20 @@
 import itertools
 import logging
+from pathlib import Path
+from tempfile import gettempdir
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import rasterio
 from pyproj import CRS, transform
 from rhealpixdggs.dggs import WGS84_003
 from rich.logging import RichHandler
+from rich.progress import track
 from shapely.geometry import Polygon
+from utils import db_connect, down_s2
+import rasterio.rio.mask
+import shutil
 
 FORMAT = "%(message)s"
 logging.basicConfig(
@@ -81,7 +88,7 @@ def reproject_bounds(bounds, epsg_in, epsg_out="4326"):
     return tuple(reversed(nw_proj)), tuple(reversed(se_proj))
 
 
-def rpix_from_raster_extent(raster_path, out_dir, resolution):
+def rpix_from_raster_extent(raster_path, out_dir, resolution,df_ret=False):
     with rasterio.open(raster_path) as ds:
         bounds = ds.bounds
         nw, se = reproject_bounds(bounds, ds.crs.to_epsg())
@@ -92,10 +99,56 @@ def rpix_from_raster_extent(raster_path, out_dir, resolution):
     # grid['crossed'] = grid['geometry'].apply(check_for_geom)
     # grid = grid.loc[grid['crossed'] == False]
     grid = grid.to_crs(f"EPSG:{epsg}")
-    out_fname = f"{raster_path.stem}_rpix_res_{resolution}.geojson"
-    logger.info(f"Try to save output file {out_fname}")
-    grid.to_file(out_dir / out_fname, driver="GeoJSON")
-    return out_dir / out_fname
+    if df_ret:
+        return grid
+    else:
+        out_fname = f"{raster_path.stem}_rpix_res_{resolution}.geojson"
+        logger.info(f"Try to save output file {out_fname}")
+        grid.to_file(out_dir / out_fname, driver="GeoJSON")
+        return out_dir / out_fname
 
-def s2_to_rpix():
-    pass
+def s2_to_rpix(s2_tile_id: str,date="str", tmp_dir = Path(gettempdir()), res = 7, simulate=False):
+    # Get all 10m tif files and store them in tmp dir
+    # for each H3 cell load info from all bands
+    # send dataframe to postgis
+
+    # Download the Sentinel-2 data
+    out_dir = down_s2(s2_tile_id,date,tmp_dir,bands=["B02","B08"])
+    # Create a gdf of rpix at a given resolution
+    list_bands = list(out_dir.rglob("*.tif"))
+    rpix_grid = rpix_from_raster_extent(list_bands[0],out_dir,res,df_ret=True)
+    if not simulate:
+        # Fill the H3 dataframe
+        band_values = {}
+        for sat_band_path in track(list_bands):
+            band_name = sat_band_path.parts[-1].replace(".tif","")
+            band_values[band_name]=[]
+            with rasterio.open(sat_band_path, "r") as src:
+                shapes = [geom for geom in rpix_grid.geometry]
+                for shape in shapes:
+                    try:
+                        out_image, out_transform = rasterio.mask.mask(src, [shape],True)
+                        sub_data = int(np.mean(out_image))
+                        band_values[band_name].append(sub_data)
+                    except:
+                         logger.warning("Shape outside raster")
+                         band_values[band_name].append(0)
+        for band_val in band_values:
+            rpix_grid[band_val]=band_values[band_val]
+    # Add resolution column
+    rpix_grid["resolution"] = res
+    # Add grid name
+    rpix_grid["grid_name"] = "rpix"
+    # Reproject to 4326 for visualisation
+    rpix_grid = rpix_grid.to_crs("EPSG:4326")
+    # Send data to Postgis DB
+    table_name="roma"
+    db = "start_db"
+    engine = db_connect(db)
+    rpix_grid.to_postgis(table_name, engine, if_exists="append",index=True)
+    shutil.rmtree(out_dir)
+    logger.info(f" -- Rpix data sent to {table_name} table ({len(rpix_grid)} cells)")
+
+if __name__ == "__main__":
+    import sys
+    s2_to_rpix("32TQM","20220902",res=int(sys.argv[1]), simulate=False)

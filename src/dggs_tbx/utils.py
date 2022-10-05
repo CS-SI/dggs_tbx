@@ -1,5 +1,7 @@
 import logging
+import os
 from pathlib import Path
+from tempfile import gettempdir
 
 import boto3
 import fiona
@@ -13,7 +15,7 @@ from rasterio.mask import mask
 from rich.logging import RichHandler
 from rich.progress import track
 from shapely.geometry import box
-from tempfile import gettempdir
+from sqlalchemy import create_engine
 
 FORMAT = "%(message)s"
 logging.basicConfig(
@@ -107,7 +109,6 @@ def get_raster_extent(raster_path: Path, outfname: Path = None) -> None:
     with rasterio.open(raster_path, "r") as ds:
         bounds = ds.bounds
         extent_geom = box(*bounds)
-        print(reproject_bounds(bounds, ds.crs.to_epsg()))
         df = gpd.GeoDataFrame({"id": 1, "geometry": [extent_geom]})
         df.crs = ds.crs
         df = df.to_crs("EPSG:4326")
@@ -161,12 +162,10 @@ def down_s2(s2_tile_id: str, date: str, tmp_dir=Path(gettempdir()), bands = ["B0
             logger.info(f" -- Saved {band} to {file_name}")
     return out_dir
 
-if __name__ == "__main__":
-    import sys
-    from pathlib import Path
+def db_connect(db):
+    username = os.getenv("pg_username", "postgres")
+    password = os.getenv("pg_pass")
+    host = os.getenv("pg_host","172.18.0.3")
+    engine = create_engine(f"postgresql://{username}:{password}@{host}:5432/{db}")
+    return engine
 
-    raster_path = Path(sys.argv[1])
-    vector_path = Path(sys.argv[2])
-    get_raster_extent(raster_path, vector_path)
-    # dggrid_fname = reproject_vector(vector_path, raster_path)
-    # rasterval_geojson(dggrid_fname,raster_path)

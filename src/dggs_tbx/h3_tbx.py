@@ -5,17 +5,15 @@ from logging import INFO
 from pathlib import Path
 from tempfile import gettempdir
 
-import boto3
 import geopandas as gpd
 import h3pandas
 import numpy as np
 import rasterio.rio.mask
-from botocore import UNSIGNED
-from botocore.config import Config
 from rich.logging import RichHandler
 from rich.progress import track
 from shapely.geometry import box
-from sqlalchemy import create_engine
+from utils import db_connect
+
 from dggs_tbx.utils import down_s2
 
 FORMAT = "%(message)s"
@@ -73,18 +71,18 @@ def s2_to_h3(s2_tile_id: str,date="str", tmp_dir = Path(gettempdir()), res = 7, 
                          band_values[band_name].append(0)
         for band_val in band_values:
             h3_grid[band_val]=band_values[band_val]
-    h3_grid["H3_resolution"]=res
+    h3_grid["resolution"]=res
+    # Add grid name
+    h3_grid["grid_name"]="H3"
+
     # add column with the resolution
     h3_grid = h3_grid.to_crs("EPSG:4326")
-    username = os.getenv("pg_username")
-    password = os.getenv("pg_pass")
-    host = os.getenv("pg_host")
+    table_name="roma_h3"
     db = "start_db"
-    table_name = "roma"
-    engine = create_engine(f"postgresql://{username}:{password}@{host}:5432/{db}")
+    engine = db_connect(db)
     h3_grid.to_postgis(table_name, engine, if_exists="append",index=True)
     shutil.rmtree(out_dir)
-    logger.info(f" -- Data sent to {table_name} table ({len(h3_grid)} hexagons)")
+    logger.info(f" -- H3 data sent to {table_name} table ({len(h3_grid)} Cells)")
 
 if __name__ == "__main__":
     import sys
