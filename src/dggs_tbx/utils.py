@@ -92,13 +92,13 @@ def binary_scl(scl_file: Path, raster_fn: Path) -> None:
     meta["nodata"] = 255
 
     with rasterio.open(
-            raster_fn,
-            "w+",
-            **meta,
-            compress="deflate",
-            tiled=True,
-            blockxsize=512,
-            blockysize=512,
+        raster_fn,
+        "w+",
+        **meta,
+        compress="deflate",
+        tiled=True,
+        blockxsize=512,
+        blockysize=512,
     ) as out:
         # Modify output metadata
 
@@ -113,12 +113,16 @@ def get_raster_extent(raster_path: Path, outfname: Path = None) -> None:
         df.crs = ds.crs
         df = df.to_crs("EPSG:4326")
         if outfname is None:
-            outfname = raster_path.parent / Path(str(raster_path.name).replace(".tif", "_extent.shp"))
+            outfname = raster_path.parent / Path(
+                str(raster_path.name).replace(".tif", "_extent.shp")
+            )
         df.to_file(outfname)
         logger.info(f"Raster extent saved to: {outfname}")
 
 
-def reproject_vector(vector_path: Path, raster_path: Path, outfname: Path = None) -> None:
+def reproject_vector(
+    vector_path: Path, raster_path: Path, outfname: Path = None
+) -> None:
     with rasterio.open(raster_path, "r") as ds:
         gdf = gpd.read_file(vector_path)
         logger.info(f"Reprojecting from {gdf.crs} to EPSG:{ds.crs.to_epsg()}")
@@ -130,14 +134,16 @@ def reproject_vector(vector_path: Path, raster_path: Path, outfname: Path = None
         return Path(outfname)
 
 
-def down_s2(s2_tile_id: str, date: str, tmp_dir=Path(gettempdir()), bands = ["B02", "B08"]):
+def down_s2(
+    s2_tile_id: str, date: str, tmp_dir=Path(gettempdir()), bands=["B02", "B08"]
+):
     # Download the Sentinel-2 data
     if date[5] == 0:
         month = date[6]
     else:
         month = date[5:6]
     prefix = f"sentinel-s2-l2a-cogs/{s2_tile_id[:2]}/{s2_tile_id[2:3]}/{s2_tile_id[3:]}/{date[:4]}/{month}/"
-    client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+    client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
     bucket_name = "sentinel-cogs"
     default_kwargs = {
         "Bucket": bucket_name,
@@ -154,18 +160,15 @@ def down_s2(s2_tile_id: str, date: str, tmp_dir=Path(gettempdir()), bands = ["B0
             out_dir = tmp_dir / product_name
             out_dir.mkdir(parents=True, exist_ok=True)
             file_name = out_dir / Path(band + ".tif")
-            client.download_file(
-                bucket_name,
-                resp["Key"],
-                str(file_name)
-            )
+            client.download_file(bucket_name, resp["Key"], str(file_name))
             logger.info(f" -- Saved {band} to {file_name}")
     return out_dir
+
 
 def db_connect(db):
     username = os.getenv("pg_username", "postgres")
     password = os.getenv("pg_pass")
-    host = os.getenv("pg_host","172.18.0.3")
-    engine = create_engine(f"postgresql://{username}:{password}@{host}:5432/{db}")
+    host = os.getenv("pg_host", "172.18.0.3")
+    port = os.getenv("pg_port","19432")
+    engine = create_engine(f"postgresql://{username}:{password}@{host}:{port}/{db}")
     return engine
-
