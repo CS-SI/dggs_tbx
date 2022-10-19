@@ -4,6 +4,7 @@ import shutil
 from logging import INFO
 from pathlib import Path
 from tempfile import gettempdir
+from typing import List
 
 import dask.dataframe as dd
 import geopandas as gpd
@@ -34,7 +35,7 @@ def h3_from_raster_extent(
         df = gpd.GeoDataFrame({"id": 1, "geometry": [extent_geom]})
         df.crs = ds.crs
         df = df.to_crs("EPSG:4326")
-        logger.info(f"H3 at resolution {resolution}")
+        logger.info(f"-- H3 at resolution {resolution}")
         out_fname = f"{raster_path.stem}_H3_res_{resolution}_ap7.geojson"
         gdf = df.h3.polyfill_resample(resolution)
         gdf = gdf.to_crs(f"EPSG:{ds.crs.to_epsg()}")
@@ -48,19 +49,24 @@ def h3_from_raster_extent(
 
 def s2_to_h3(
     s2_tile_id: str,
-    date="str",
-    tmp_dir=Path(gettempdir()),
-    res=7,
-    simulate=False,
-    use_dask=False,
+    date: str,
+    table_name: str,
+    bands: List,
+    tmp_dir: Path = Path(gettempdir()),
+    res: int = 7,
+    simulate: bool = False,
+    use_dask: bool = False,
 ):
     # Get all 10m tif files and store them in tmp dir
     # for each H3 cell load info from all bands
     # send dataframe to postgis
 
     # Download the Sentinel-2 data
-    bands  = ["B02", "B08"]
-    out_dir = down_s2(s2_tile_id, date, tmp_dir, bands=bands)
+    if simulate:
+        # In case of simulation, download only one band for extent
+        out_dir = down_s2(s2_tile_id, date, tmp_dir, bands=bands[0])
+    else:
+        out_dir = down_s2(s2_tile_id, date, tmp_dir, bands=bands)
     # Create a gdf of H3 hex at a given resolution
     list_bands = list(out_dir.rglob("*.tif"))
     if use_dask:
@@ -71,9 +77,9 @@ def s2_to_h3(
         h3_grid = h3_from_raster_extent(list_bands[0], out_dir, res, df_ret=True)
     band_values = {}
     if simulate:
-        logger.info("-- Simulation is ON")
+        logger.info("-- Simulation is ON, using uniform distribution")
         for band in bands:
-            h3_grid[band] = [None] * h3_grid.shape[0]
+            h3_grid[band] = np.random.uniform(0, 10000, h3_grid.shape[0]).astype(int)
     else:
         # Fill the H3 dataframe
         for sat_band_path in track(list_bands):
@@ -93,15 +99,13 @@ def s2_to_h3(
                         band_values[band_name].append(0)
         for band_val in band_values:
             h3_grid[band_val] = band_values[band_val]
-
+    h3_grid["simulated"] = simulate
     h3_grid["resolution"] = res
     # Add grid name
     h3_grid["grid_name"] = "H3"
     # add column with the resolution
     h3_grid = h3_grid.to_crs("EPSG:4326")
-    table_name = "roma_h3"
-    db = "DGGS"
-    engine = db_connect(db)
+    engine = db_connect()
     logger.info("-- Connected to DB, pushing data")
     h3_grid.to_postgis(table_name, engine, if_exists="append", index=True)
     shutil.rmtree(out_dir)
@@ -116,6 +120,7 @@ def dask_h3_from_raster(
     dask_partition=4,
 ):
     out_fname = f"{raster_path.stem}_H3_res_{resolution}_ap7.geojson"
+    logger.info(f"H3 at resolution {resolution}")
     with rasterio.open(raster_path, "r") as ds:
         bounds = ds.bounds
         extent_geom = box(*bounds)
@@ -161,4 +166,11 @@ if __name__ == "__main__":
                                  df_ret=True)
     print(df)
     """
-    s2_to_h3("32TQM", "20220902", res=int(sys.argv[1]), simulate=True,use_dask=True)
+    s2_to_h3(
+        "32TQM",
+        "20220902",
+        "roma_H3",
+        res=int(sys.argv[1]),
+        simulate=True,
+        use_dask=True,
+    )

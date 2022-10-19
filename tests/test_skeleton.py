@@ -15,7 +15,7 @@ def test_down_s2():
     assert num_down == 2
 
 def test_db_connect():
-    db_name = "start_db"
+    db_name = "DGGS"
     engine = db_connect(db_name)
     conn = engine.connect()
     conn.close()

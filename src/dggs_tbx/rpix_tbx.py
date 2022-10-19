@@ -112,15 +112,19 @@ def s2_to_rpix(
     s2_tile_id: str, date="str", tmp_dir=Path(gettempdir()), res=7, simulate=False
 ):
     # Get all 10m tif files and store them in tmp dir
-    # for each H3 cell load info from all bands
+    # for each rpix cell load info from all bands
     # send dataframe to postgis
-
     # Download the Sentinel-2 data
-    out_dir = down_s2(s2_tile_id, date, tmp_dir, bands=["B02", "B08"])
+    bands = ["B02", "B08"]
+    out_dir = down_s2(s2_tile_id, date, tmp_dir, bands=bands)
     # Create a gdf of rpix at a given resolution
     list_bands = list(out_dir.rglob("*.tif"))
     rpix_grid = rpix_from_raster_extent(list_bands[0], out_dir, res, df_ret=True)
-    if not simulate:
+    if simulate:
+        logger.info("-- Simulation is ON")
+        for band in bands:
+            rpix_grid[band] = [None] * rpix_grid.shape[0]
+    else:
         # Fill the H3 dataframe
         band_values = {}
         for sat_band_path in track(list_bands):
@@ -147,13 +151,15 @@ def s2_to_rpix(
     # Reproject to 4326 for visualisation
     rpix_grid = rpix_grid.to_crs("EPSG:4326")
     # Send data to Postgis DB
-    table_name = "roma"
-    db = "start_db"
+    table_name = "roma_rpix"
+    db = "DGGS"
     engine = db_connect(db)
     rpix_grid.to_postgis(table_name, engine, if_exists="append", index=True)
     shutil.rmtree(out_dir)
     logger.info(f" -- Rpix data sent to {table_name} table ({len(rpix_grid)} cells)")
 
+
 if __name__ == "__main__":
     import sys
-    s2_to_rpix("32TQM", "20220902", res=int(sys.argv[1]), simulate=False)
+
+    s2_to_rpix("32TQM", "20220902", res=int(sys.argv[1]), simulate=True)

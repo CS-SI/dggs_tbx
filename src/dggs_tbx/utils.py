@@ -32,7 +32,7 @@ def rasterval_geojson(path_to_geojson, raster_path):
     out_geojson = path_to_geojson.parent / Path(
         str(path_to_geojson.stem) + "_filled.geojson"
     )
-    logger.info(f"-- Filling {path_to_geojson}")
+    logger.info(f"-- Filling {path_to_geojson} with mean values from {raster_path}")
     count = 0
     with fiona.open(path_to_geojson, "r") as geofile:
         shapes = [feature["geometry"] for feature in geofile]
@@ -165,10 +165,11 @@ def down_s2(
     return out_dir
 
 
-def db_connect(db):
+def db_connect():
+    db = os.getenv("pg_db", "DGGS")
     username = os.getenv("pg_username", "postgres")
     password = os.getenv("pg_pass")
     host = os.getenv("pg_host", "172.18.0.3")
-    port = os.getenv("pg_port","19432")
+    port = os.getenv("pg_port", "19432")
     engine = create_engine(f"postgresql://{username}:{password}@{host}:{port}/{db}")
     return engine
