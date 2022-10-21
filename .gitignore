@@ -53,3 +53,6 @@ MANIFEST
 .dggs*/
 .conda*/
 .python-version
+
+# DB
+.env_db.dev
