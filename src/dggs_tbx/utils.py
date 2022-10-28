@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def rasterval_geojson(path_to_geojson, raster_path):
+def rasterval_geojson(path_to_geojson, raster_path,write=True):
     rast_vals = []
     band_name = path_to_geojson.stem
     out_geojson = path_to_geojson.parent / Path(
@@ -50,9 +50,12 @@ def rasterval_geojson(path_to_geojson, raster_path):
     gdf = gpd.read_file(path_to_geojson)
     gdf[band_name] = rast_vals
     # gdf = gdf.to_crs("EPSG:4326")
-    gdf.to_file(out_geojson, driver="GeoJSON")
-    logger.info(f"-- Updated geojson saved to: {out_geojson}")
-    logger.info(f"-- Cells with value: {count}/{target}")
+    if write:
+        gdf.to_file(out_geojson, driver="GeoJSON")
+        logger.info(f"-- Updated geojson saved to: {out_geojson}")
+        logger.info(f"-- Cells with value: {count}/{target}")
+    else:
+        return gdf
 
 
 def reproject_bounds(bounds, epsg_in, epsg_out="4326"):

@@ -14,8 +14,8 @@ from rhealpixdggs.dggs import WGS84_003
 from rich.logging import RichHandler
 from rich.progress import track
 from shapely.geometry import Polygon
-
 from dggs_tbx.utils import db_connect, down_s2
+from typing import List
 
 FORMAT = "%(message)s"
 logging.basicConfig(
@@ -38,7 +38,7 @@ def create_cells(res: int, extent: tuple = None):
     else:
         set_hex = [x for x in rdggs.grid(res)]
     df = pd.DataFrame({"cell_id": set_hex})
-    logger.info(f"Done creating rHEALpix cells at res {res}")
+    logger.info(f"-- Done creating rHEALpix cells at res {res}")
     return df
 
 
@@ -93,7 +93,7 @@ def rpix_from_raster_extent(raster_path, out_dir, resolution, df_ret=False):
     with rasterio.open(raster_path) as ds:
         bounds = ds.bounds
         nw, se = reproject_bounds(bounds, ds.crs.to_epsg())
-        logger.info(f"-- Grid extent : {(nw,se)}")
+        logger.info(f" -- Grid extent : {(nw,se)}")
         epsg = ds.crs.to_epsg()
     df = create_cells(resolution, extent=(nw, se))
     grid = add_geom_cell(df)
@@ -110,21 +110,25 @@ def rpix_from_raster_extent(raster_path, out_dir, resolution, df_ret=False):
 
 
 def s2_to_rpix(
-    s2_tile_id: str, date="str", tmp_dir=Path(gettempdir()), res=7, simulate=False
+    s2_tile_id: str, date: str,table_name: str,bands: List, tmp_dir: Path = Path(gettempdir()), res: int =7, simulate: bool = False
 ):
     # Get all 10m tif files and store them in tmp dir
     # for each rpix cell load info from all bands
     # send dataframe to postgis
     # Download the Sentinel-2 data
-    bands = ["B02", "B08"]
-    out_dir = down_s2(s2_tile_id, date, tmp_dir, bands=bands)
+    # Download the Sentinel-2 data
+    if simulate:
+        # In case of simulation, download only one band for extent
+        out_dir = down_s2(s2_tile_id, date, tmp_dir, bands=bands[0])
+    else:
+        out_dir = down_s2(s2_tile_id, date, tmp_dir, bands=bands)
     # Create a gdf of rpix at a given resolution
     list_bands = list(out_dir.rglob("*.tif"))
     rpix_grid = rpix_from_raster_extent(list_bands[0], out_dir, res, df_ret=True)
     if simulate:
-        logger.info("-- Simulation is ON")
+        logger.info("-- Simulation is ON, using uniform distribution")
         for band in bands:
-            rpix_grid[band] = [None] * rpix_grid.shape[0]
+            rpix_grid[band] = np.random.uniform(0, 10000, rpix_grid.shape[0]).astype(int)
     else:
         # Fill the H3 dataframe
         band_values = {}
@@ -152,9 +156,7 @@ def s2_to_rpix(
     # Reproject to 4326 for visualisation
     rpix_grid = rpix_grid.to_crs("EPSG:4326")
     # Send data to Postgis DB
-    table_name = "roma_rpix"
-    db = "DGGS"
-    engine = db_connect(db)
+    engine = db_connect()
     rpix_grid.to_postgis(table_name, engine, if_exists="append", index=True)
     shutil.rmtree(out_dir)
     logger.info(f" -- Rpix data sent to {table_name} table ({len(rpix_grid)} cells)")

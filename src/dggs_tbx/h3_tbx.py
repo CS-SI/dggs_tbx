@@ -8,6 +8,7 @@ from typing import List
 
 import dask.dataframe as dd
 import geopandas as gpd
+import h3pandas
 import numpy as np
 import rasterio.rio.mask
 from h3 import h3
@@ -15,7 +16,7 @@ from rich.logging import RichHandler
 from rich.progress import track
 from shapely.geometry import Polygon, box
 
-from dggs_tbx.utils import down_s2, db_connect
+from dggs_tbx.utils import down_s2, db_connect, binary_scl
 
 FORMAT = "%(message)s"
 logging.basicConfig(level=INFO, format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
@@ -149,6 +150,31 @@ def dask_h3_from_raster(
             dest.to_file(output_grid / out_fname, driver="GeoJSON")
             logger.info(f"-- Grid saved to: {output_grid / out_fname}")
             return output_grid / out_fname
+
+def h3cloudcindex(s2_tile_id: str,date: str,table_name: str,resolution: int,tmp_dir = Path(gettempdir())):
+    bands = ["SCL"]
+    out_dir = down_s2(s2_tile_id, date, tmp_dir, bands=bands)
+    scl_path = out_dir/'SCL.tif'
+    raster_fn = scl_path.parent / Path(scl_path.name + "_bin.tif")
+    binary_scl(scl_path, raster_fn)
+    scl_grid = h3_from_raster_extent(raster_fn, out_dir, resolution,df_ret=True)
+    scl_band_val=[]
+    with rasterio.open(scl_path, "r") as src:
+        shapes = [geom for geom in scl_grid.geometry]
+        for shape in shapes:
+            try:
+                out_image, out_transform = rasterio.mask.mask(
+                    src, [shape], True
+                )
+                sub_data = int(np.max(out_image))
+                scl_band_val.append(sub_data)
+            except:
+                logger.warning("Shape outside raster")
+                scl_band_val.append(0)
+    scl_grid["cloudy"]=scl_band_val
+    # This is WIP
+
+
 
 
 if __name__ == "__main__":
