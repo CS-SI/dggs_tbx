@@ -6,7 +6,7 @@ from typing import List
 
 import typer
 from rich.logging import RichHandler
-from utils import binary_scl, rasterval_geojson
+from .utils import binary_scl, rasterval_geojson
 
 from dggs_tbx.h3_tbx import h3_from_raster_extent, s2_to_h3
 from dggs_tbx.rpix_tbx import rpix_from_raster_extent

@@ -15,7 +15,7 @@ from h3 import h3
 from rich.logging import RichHandler
 from rich.progress import track
 from shapely.geometry import Polygon, box
-from utils import db_connect
+from .utils import db_connect
 
 from dggs_tbx.utils import down_s2
 
