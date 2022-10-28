@@ -14,7 +14,8 @@ from rhealpixdggs.dggs import WGS84_003
 from rich.logging import RichHandler
 from rich.progress import track
 from shapely.geometry import Polygon
-from .utils import db_connect, down_s2
+
+from dggs_tbx.utils import db_connect, down_s2
 
 FORMAT = "%(message)s"
 logging.basicConfig(

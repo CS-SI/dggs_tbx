@@ -8,16 +8,14 @@ from typing import List
 
 import dask.dataframe as dd
 import geopandas as gpd
-import h3pandas
 import numpy as np
 import rasterio.rio.mask
 from h3 import h3
 from rich.logging import RichHandler
 from rich.progress import track
 from shapely.geometry import Polygon, box
-from .utils import db_connect
 
-from dggs_tbx.utils import down_s2
+from dggs_tbx.utils import down_s2, db_connect
 
 FORMAT = "%(message)s"
 logging.basicConfig(level=INFO, format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
