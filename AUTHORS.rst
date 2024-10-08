@@ -2,4 +2,5 @@
 Contributors
 ============
 
-* Benatia Fahd <fahd.benatia@csgroup.eu>
+* Benatia Fahd
+* Nicolas Vila <nicolas.vila@cs-soprasteria.com>

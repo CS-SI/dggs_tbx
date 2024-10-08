@@ -5,7 +5,7 @@ import os
 
 from dggs_tbx.utils import down_s2, db_connect
 
-__author__ = "Benatia Fahd"
+__author__ = "CS GROUP (Benatia Fahd, Nicolas Vila)"
 
 
 def test_down_s2():
