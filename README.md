@@ -3,7 +3,7 @@
 ## Description
 
 The DGGS Toolbox, has been developed by ESA in the framework of the EU Copernicus programme (https://www.copernicus.eu/).
-The main goal of DGGS Toolbox is to create and manage [Discrete Global Grid Systems (DGGS)](https://docs.ogc.org/as/20-040r3/20-040r3.html). These scripts have been written during phases 1 and 2 of the DGGS study and the outcomes are summarized in the document here enclosed in this project: [https://github.com/CS-SI/dggs_tbx/tree/main/docs](https://github.com/CS-SI/dggs_tbx/tree/main/tests)
+The main goal of DGGS Toolbox is to create and manage [Discrete Global Grid Systems (DGGS)](https://docs.ogc.org/as/20-040r3/20-040r3.html). These scripts have been written during phases 1 and 2 of the DGGS study and the outcomes are summarized in the document here enclosed in this project: [https://github.com/CS-SI/dggs_tbx/tree/main/docs](https://github.com/CS-SI/dggs_tbx/tree/main/docs)
 
 A DGGS demonstrator is currently being developped, on the basis of the findings of the Phase 1 and 2 study.
 The preliminar version is available on the Creodias platform: [DGGS Demonstrator](https://s2mpc-dggs.csgroup.space/demo/)
